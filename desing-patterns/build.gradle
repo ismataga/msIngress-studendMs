@@ -1,7 +1,30 @@
+
+
+buildscript {
+    repositories {
+        maven {
+            url = uri("https://plugins.gradle.org/m2/")
+        }
+    }
+    dependencies {
+        classpath("com.bmuschko:gradle-docker-plugin:6.6.1")
+    }
+}
+
+
+
 plugins {
     id 'java'
     id 'org.springframework.boot' version '3.2.2'
     id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.bmuschko.docker-remote-api' version '6.6.1'
+}
+
+
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'com.bmuschko.docker-remote-api'
 }
 
 group = 'com.ingress'
@@ -30,4 +53,23 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+task dockerFile(type: DockerFile, dependsOn: assemble ){
+    destFile.set(project.file('Dockerfile'))
+    from "openjdk:17"
+    copyFile "build/libs/${project.name}-${project.version}.jar", '/app/'
+    entryPoint 'java'
+    defaultCommand '-jar', "/app/${project.name}-${project.version}.jar"
+}
+
+task dockerBuild(type: exec, dependsOn: dockerFile ){
+    println "${project.name}:${versionApp}"
+    commandLine "docker", "build" ,  ".", "-t", "$dockerRepoUrl/${project.name}:${versionApp}"
+}
+
+task dockerBuild(type: exec, dependsOn: dockerBuild ){
+    commandLine "docker", "push", "$dockerRepoUrl/${project.name}:${versionApp}"
+    println "$dockerRepoUrl/${project.name}:${versionApp}"
+
 }
